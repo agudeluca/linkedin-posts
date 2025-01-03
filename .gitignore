@@ -1,0 +1,6 @@
+*.db
+*.log
+chrome_profile
+__pycache__
+.env
+venv
