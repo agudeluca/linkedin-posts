@@ -12,6 +12,8 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.remote.webelement import WebElement
 from selenium.common.exceptions import TimeoutException, WebDriverException
+from webdriver_manager.chrome import ChromeDriverManager as ChromeDriverManager2
+from selenium.webdriver.chrome.service import Service
 
 # Configure logging
 logging.basicConfig(
@@ -61,7 +63,7 @@ class LinkedInPostFetcher:
             title = ""
             content = job_card.find_element(By.CLASS_NAME, "break-words").get_attribute("innerText").strip()
             url = f"https://www.linkedin.com/feed/update/{job_id}"
-            
+
             email_match = re.search(r'\b[\w.-]+?@\w+?\.\w+?\b', content)
             email = email_match.group(0) if email_match else None
 
@@ -83,18 +85,18 @@ class LinkedInPostFetcher:
         try:
             self.driver.get(url)
             await self._scroll_to_load_jobs()
-            
+
             job_cards = self.wait.until(
                 EC.presence_of_all_elements_located((By.CSS_SELECTOR, "li.artdeco-card"))
             )
-            
+
             jobs = []
             for card in job_cards:
                 if job_data := await self.extract_job_details(card):
                     jobs.append(job_data)
-            
+
             return jobs
-            
+
         except TimeoutException:
             logger.error("Timeout while loading job listings")
             return []
@@ -122,12 +124,11 @@ class ChromeDriverManager:
         options = webdriver.ChromeOptions()
         options.add_argument('--disable-gpu')
         options.add_argument('--no-sandbox')
-        options.add_argument('--headless=new')
+        # options.add_argument('--headless=new')
         options.add_argument('--disable-dev-shm-usage')
         options.add_argument('--user-data-dir=' + initial_path)
         options.add_argument('--profile-directory=' + profile_dir)
-
-        self.driver = webdriver.Chrome(options=options)
+        self.driver = webdriver.Chrome(service=Service(ChromeDriverManager2().install()), options=options)
         return self.driver
 
     def cleanup(self):
@@ -154,11 +155,11 @@ class LinkedInJobScanner:
         try:
             # Setup driver and components
             self.driver = self.driver_manager.setup()
-            
+
             self.authenticator = LinkedInAuthenticator(self.driver)
             if not await self.authenticator.check_login_status():
                 self.authenticator.manual_login_prompt()
-                
+
             self.post_fetcher = LinkedInPostFetcher(self.driver)
 
             new_jobs = await self.scan_jobs()
@@ -178,7 +179,7 @@ class LinkedInJobScanner:
         for url in self.SEARCH_URLS:
             page_jobs = await self.post_fetcher.scan_page(url)
             jobs.extend(page_jobs)
-        
+
         # Print or process jobs as needed
         for job in jobs:
             logger.info(f"Found Job: {job['title']} - URL: {job['url']}")
