@@ -8,6 +8,7 @@ from typing import List, Optional, Dict
 
 from selenium import webdriver
 from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.remote.webelement import WebElement
@@ -49,6 +50,43 @@ class LinkedInAuthenticator:
         """Prompt user to manually log in if needed"""
         logger.warning("Please log in to LinkedIn manually in the browser window")
         input("Press Enter after logging in...")
+
+    def login_to_linkedin(self, driver, username, password):
+        """
+        Automates the LinkedIn login process.
+        
+        Args:
+            driver: Selenium WebDriver instance.
+            username (str): LinkedIn username (email or phone number).
+            password (str): LinkedIn password.
+        """
+        try:
+            # Open the LinkedIn login page
+            driver.get("https://www.linkedin.com/checkpoint/rm/sign-in-another-account")
+
+            # Locate the username field and enter the username
+            username_field = driver.find_element(By.ID, "username")
+            username_field.clear()
+            username_field.send_keys(username)
+
+            # Locate the password field and enter the password
+            password_field = driver.find_element(By.ID, "password")
+            password_field.clear()
+            password_field.send_keys(password)
+
+            # Submit the login form
+            password_field.send_keys(Keys.RETURN)
+
+            # Wait for the login to complete and check for errors
+            driver.implicitly_wait(5)
+            if "feed" in driver.current_url:
+                logger.info("Successfully logged in to LinkedIn.")
+            else:
+                logger.error("Login failed. Check username and password.")
+
+        except Exception as e:
+            logger.error(f"An error occurred during LinkedIn login: {e}")
+            raise
 
 class LinkedInPostFetcher:
     """Handles fetching job posts from LinkedIn"""
@@ -115,7 +153,7 @@ class ChromeDriverManager:
         self.profile_path = profile_path
         self.driver = None
 
-    def setup(self) -> webdriver.Chrome:
+    def setup(self, debug_port=9222) -> webdriver.Chrome:
         """Initialize and configure Chrome WebDriver"""
         initial_path = os.path.dirname(self.profile_path)
         profile_dir = os.path.basename(self.profile_path)
@@ -124,11 +162,16 @@ class ChromeDriverManager:
         options = webdriver.ChromeOptions()
         options.add_argument('--disable-gpu')
         options.add_argument('--no-sandbox')
+        # Configure Chrome options
+        options.add_argument("--headless")  # Optional for headless mode
+        options.add_argument("--disable-dev-shm-usage")
         # options.add_argument('--headless=new')
-        options.add_argument('--disable-dev-shm-usage')
         options.add_argument('--user-data-dir=' + initial_path)
         options.add_argument('--profile-directory=' + profile_dir)
+        options.add_argument("--remote-debugging-port={}".format(debug_port))  # Enable remote debugging
+        options.add_argument("--disable-blink-features=AutomationControlled")
         self.driver = webdriver.Chrome(service=Service(ChromeDriverManager2().install()), options=options)
+        self.driver.get("https://www.google.com")
         return self.driver
 
     def cleanup(self):
@@ -157,7 +200,7 @@ class LinkedInJobScanner:
             self.driver = self.driver_manager.setup()
 
             self.authenticator = LinkedInAuthenticator(self.driver)
-            if not await self.authenticator.check_login_status():
+            while not await self.authenticator.check_login_status():
                 self.authenticator.manual_login_prompt()
 
             self.post_fetcher = LinkedInPostFetcher(self.driver)
