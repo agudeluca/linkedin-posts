@@ -49,6 +49,7 @@ class LinkedInAuthenticator:
     def manual_login_prompt(self):
         """Prompt user to manually log in if needed"""
         logger.warning("Please log in to LinkedIn manually in the browser window")
+        self.driver.get("https://www.linkedin.com/checkpoint/rm/sign-in-another-account")
         input("Press Enter after logging in...")
 
     def login_to_linkedin(self, driver, username, password):
@@ -163,13 +164,10 @@ class ChromeDriverManager:
         options.add_argument('--disable-gpu')
         options.add_argument('--no-sandbox')
         # Configure Chrome options
-        options.add_argument("--headless")  # Optional for headless mode
-        options.add_argument("--disable-dev-shm-usage")
         # options.add_argument('--headless=new')
         options.add_argument('--user-data-dir=' + initial_path)
         options.add_argument('--profile-directory=' + profile_dir)
         options.add_argument("--remote-debugging-port={}".format(debug_port))  # Enable remote debugging
-        options.add_argument("--disable-blink-features=AutomationControlled")
         self.driver = webdriver.Chrome(service=Service(ChromeDriverManager2().install()), options=options)
         self.driver.get("https://www.google.com")
         return self.driver
