@@ -3,6 +3,7 @@
 chrome_profile
 __pycache__
 .env
+.envrc
 venv
 chromedriver_mac_arm64/chromedriver
 chromedriver_mac_arm64.zip
