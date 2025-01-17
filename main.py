@@ -42,24 +42,23 @@ class JobNotificationService:
                 if self.db.add_job(job):
                     await self.telegram_client.send_job_offer(job)
                     new_jobs.append(job)
-        
+
         return new_jobs
 
 class JobScanScheduler:
     """Manages job scanning schedule and execution"""
     def __init__(
         self,
-        notification_service: JobNotificationService, 
+        notification_service: JobNotificationService,
     ):
         self.notification_service = notification_service
 
     async def run(self):
         """Main job scanning routine"""
         logger.info(f"Starting job scan at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-        
+
         services = [LinkedInJobScanner()]  # noqa: F821
         all_new_jobs = []
-
         for service in services:
             jobs = await service.run()
             new_jobs = await self.notification_service.process_new_jobs(jobs)
@@ -67,7 +66,7 @@ class JobScanScheduler:
 
         # Log scan results
         self.notification_service.db.log_scan(len(all_new_jobs))
-        
+
         if all_new_jobs:
             logger.info(f"Found {len(all_new_jobs)} new jobs")
         else:
@@ -78,6 +77,6 @@ class JobScanScheduler:
 if __name__ == "__main__":
     CHROME_PROFILE_PATH = os.path.join(os.getcwd(), "chrome_profile", "linkedin_profile")
 
-    notification_service = JobNotificationService(DatabaseManager(), TelegramNotifier(os.getenv("BOT_TOKEN"), "-1002478023982"))
+    notification_service = JobNotificationService(DatabaseManager(), TelegramNotifier(os.getenv("BOT_TOKEN"), "-1002268524956"))
     scanner = JobScanScheduler(notification_service)
     asyncio.run(scanner.run())
