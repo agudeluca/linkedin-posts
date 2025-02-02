@@ -17,6 +17,7 @@ from webdriver_manager.chrome import ChromeDriverManager as ChromeDriverManager2
 from selenium.webdriver.chrome.service import Service
 
 from filters.ai_formatter import DeepSeekAIFormatter
+from filters.message_filters import MessageFilter
 
 # Configure logging
 logging.basicConfig(
@@ -188,14 +189,14 @@ class LinkedInJobScanner:
         "https://www.linkedin.com/search/results/content/?keywords=%22react%22%20%22developer%22%20%22latam%22&origin=GLOBAL_SEARCH_HEADER&sid=YBw&sortBy=%22date_posted%22"
     ]
 
-    def __init__(self, message_formatters=None):
+    def __init__(self, message_formatters: List['MessageFilter']=None):
         CHROME_PROFILE_PATH = os.path.join(os.getcwd(), "chrome_profile", "linkedin_profile")
         self.driver_manager = ChromeDriverManager(CHROME_PROFILE_PATH)
         self.driver = None
         self.authenticator = None
         self.post_fetcher = None
         self.job_scanner = None
-        self.message_formatters = self.message_formatters
+        self.message_formatters: List['MessageFilter'] = self.message_formatters
 
     async def run(self):
         """Main execution loop"""
@@ -220,7 +221,7 @@ class LinkedInJobScanner:
         finally:
             self.cleanup()
 
-    async def scan_jobs(self, message_formatters=None):
+    async def scan_jobs(self, message_formatters: List['MessageFilter']=None):
         """Scan job posts from predefined URLs"""
         jobs = []
         for url in self.SEARCH_URLS:
@@ -232,7 +233,10 @@ class LinkedInJobScanner:
             logger.info(f"Found Job: {job['title']} - URL: {job['url']}")
 
         # Print or process jobs as needed
-        formatted_jobs = [message_formatter.apply_to_messages(jobs) for message_formatter in message_formatters if message_formatters]
+        formatted_jobs = []
+        for message_formatter in message_formatters:
+            if message_formatters:
+                formatted_jobs.extend(message_formatter.apply_to_messages(jobs))
 
         return formatted_jobs
 
