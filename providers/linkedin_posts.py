@@ -2,7 +2,6 @@ import re
 import os
 import asyncio
 import logging
-import schedule
 from datetime import datetime
 from typing import List, Optional, Dict
 
@@ -16,8 +15,8 @@ from selenium.common.exceptions import TimeoutException, WebDriverException
 from webdriver_manager.chrome import ChromeDriverManager as ChromeDriverManager2
 from selenium.webdriver.chrome.service import Service
 
-from filters.ai_formatter import DeepSeekAIFormatter
 from filters.message_filters import MessageFilter
+from providers.scanners import ScannerService
 
 # Configure logging
 logging.basicConfig(
@@ -29,9 +28,6 @@ logging.basicConfig(
     ]
 )
 logger = logging.getLogger(__name__)
-
-DEEPSEEK_API_URL=os.getenv("DEEPSEEK_API_URL", "")
-DEEPSEEK_API_TOKEN=os.getenv("DEEPSEEK_API_TOKEN")
 
 class LinkedInAuthenticator:
     """Handles LinkedIn authentication and login verification"""
@@ -183,7 +179,7 @@ class ChromeDriverManager:
         if self.driver:
             self.driver.quit()
 
-class LinkedInJobScanner:
+class LinkedInJobScanner(ScannerService):
     SEARCH_URLS = [
         "https://www.linkedin.com/search/results/content/?keywords=(%22react%22%20OR%20%22javascript%22%20OR%20%22node%22%20OR%20%22python%22)%20developer%20latam&origin=GLOBAL_SEARCH_HEADER&sid=rfF&sortBy=%22date_posted%22",
         "https://www.linkedin.com/search/results/content/?keywords=%22react%22%20%22developer%22%20%22latam%22&origin=GLOBAL_SEARCH_HEADER&sid=YBw&sortBy=%22date_posted%22"
@@ -196,7 +192,7 @@ class LinkedInJobScanner:
         self.authenticator = None
         self.post_fetcher = None
         self.job_scanner = None
-        self.message_formatters: List['MessageFilter'] = self.message_formatters
+        self.message_formatters: List['MessageFilter'] = message_formatters
 
     async def run(self):
         """Main execution loop"""
@@ -228,15 +224,16 @@ class LinkedInJobScanner:
             page_jobs = await self.post_fetcher.scan_page(url)
             jobs.extend(page_jobs)
 
-                    
-        for job in formatted_jobs:
-            logger.info(f"Found Job: {job['title']} - URL: {job['url']}")
+        if jobs:
+            for job in jobs:
+                logger.info(f"Found Job: {job['title']} - URL: {job['url']}")
+
 
         # Print or process jobs as needed
         formatted_jobs = []
         for message_formatter in message_formatters:
-            if message_formatters:
-                formatted_jobs.extend(message_formatter.apply_to_messages(jobs))
+            logger.info(f"Processing with message formatter {message_formatter.__class__.__name__}")
+            formatted_jobs.extend(message_formatter.apply_to_messages(jobs))
 
         return formatted_jobs
 
@@ -246,7 +243,7 @@ class LinkedInJobScanner:
 
 # Optional: Main entry point for running the scanner
 async def main():
-    scanner = LinkedInJobScanner(message_formatters=[DeepSeekAIFormatter(deepseek_api_url=DEEPSEEK_API_URL, deepseek_api_token=DEEPSEEK_API_TOKEN)])
+    scanner = LinkedInJobScanner()
     await scanner.run()
 
 if __name__ == "__main__":
