@@ -5,8 +5,8 @@ from typing import Dict, List
 from filters.message_filters import MessageFilter
 
 def extract_json_from_response(llm_output: str):
-    first_brace = llm_output.find("{")
-    last_brace = llm_output.rfind("}")
+    first_brace = llm_output.find("[")
+    last_brace = llm_output.rfind("]")
     
     if first_brace != -1 and last_brace != -1:
         llm_formatted_json = llm_output[first_brace:last_brace + 1]
