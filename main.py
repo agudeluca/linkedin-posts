@@ -10,10 +10,20 @@ from dotenv import load_dotenv
 
 # Assuming these are imported from separate modules
 from db import DatabaseManager
+from filters.ai_formatter import OpenAIFormatter
 from providers.linkedin_posts import LinkedInJobScanner
+from providers.scanners import ScannerService
 from tg import TelegramNotifier
 
 load_dotenv()
+
+DEEPSEEK_API_URL=os.getenv("DEEPSEEK_API_URL", "")
+DEEPSEEK_API_TOKEN=os.getenv("DEEPSEEK_API_TOKEN")
+
+OPENAI_API_URL=os.getenv("OPENAI_API_URL")
+OPENAI_API_TOKEN=os.getenv("OPENAI_API_TOKEN")
+OPENAI_PROJECT_ID=os.getenv("OPENAI_PROJECT_ID")
+OPENAI_ORG_ID=os.getenv("OPENAI_ORG_ID")
 
 # Configure logging
 logging.basicConfig(
@@ -50,17 +60,18 @@ class JobScanScheduler:
     def __init__(
         self,
         notification_service: JobNotificationService, 
+        scanner_services: List[ScannerService]
     ):
         self.notification_service = notification_service
+        self.services = scanner_services
 
     async def run(self):
         """Main job scanning routine"""
         logger.info(f"Starting job scan at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         
-        services = [LinkedInJobScanner()]  # noqa: F821
         all_new_jobs = []
 
-        for service in services:
+        for service in self.services:
             jobs = await service.run()
             new_jobs = await self.notification_service.process_new_jobs(jobs)
             all_new_jobs.extend(new_jobs)
@@ -77,7 +88,7 @@ class JobScanScheduler:
 
 if __name__ == "__main__":
     CHROME_PROFILE_PATH = os.path.join(os.getcwd(), "chrome_profile", "linkedin_profile")
-
+    scanner_services = [LinkedInJobScanner(message_formatters=[OpenAIFormatter(api_url=OPENAI_API_URL, api_token=OPENAI_API_TOKEN, openai_project_id=OPENAI_PROJECT_ID, openai_org_id=OPENAI_ORG_ID)])]
     notification_service = JobNotificationService(DatabaseManager(), TelegramNotifier(os.getenv("BOT_TOKEN"), "-1002478023982"))
-    scanner = JobScanScheduler(notification_service)
+    scanner = JobScanScheduler(notification_service, scanner_services)
     asyncio.run(scanner.run())
