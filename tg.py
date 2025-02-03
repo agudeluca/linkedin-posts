@@ -82,11 +82,13 @@ class TelegramNotifier:
 
     async def send_job_offer(self, job_data, max_retries=3):
         """Send a job offer message to the Telegram channel with buttons"""
+        content = job_data["content"]
+        emails = extract_emails(content)
         if self.telegram_message_sender:
             message = self.telegram_message_sender.get_message(job_data)
         else:
-            message = remove_hashtags(job_data["content"])
-        emails = extract_emails(message)
+            message = remove_hashtags(content)
+        
 
         keyboard = []
         subject = "Job Offer"  # Default subject for the email
