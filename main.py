@@ -52,7 +52,7 @@ class JobNotificationService:
                 if self.db.add_job(job):
                     await self.telegram_client.send_job_offer(job)
                     new_jobs.append(job)
-        
+
         return new_jobs
 
 class JobScanScheduler:
@@ -78,7 +78,7 @@ class JobScanScheduler:
 
         # Log scan results
         self.notification_service.db.log_scan(len(all_new_jobs))
-        
+
         if all_new_jobs:
             logger.info(f"Found {len(all_new_jobs)} new jobs")
         else:

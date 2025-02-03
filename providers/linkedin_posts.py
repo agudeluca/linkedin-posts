@@ -21,24 +21,23 @@ from providers.scanners import ScannerService
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler('linkedin_scanner.log'),
-        logging.StreamHandler()
-    ]
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    handlers=[logging.FileHandler("linkedin_scanner.log"), logging.StreamHandler()],
 )
 logger = logging.getLogger(__name__)
 
+
 class LinkedInAuthenticator:
     """Handles LinkedIn authentication and login verification"""
+
     def __init__(self, driver: webdriver.Chrome):
         self.driver = driver
-        self.wait = WebDriverWait(self.driver, 10)
+        self.wait = WebDriverWait(self.driver, 200)
 
     async def check_login_status(self) -> bool:
         """Verify LinkedIn login status"""
         try:
-            self.driver.get('https://www.linkedin.com/feed/')
+            self.driver.get("https://www.linkedin.com/feed/")
             self.wait.until(
                 EC.presence_of_element_located((By.CLASS_NAME, "feed-identity-module"))
             )
@@ -93,29 +92,36 @@ class LinkedInAuthenticator:
 
 class LinkedInPostFetcher:
     """Handles fetching job posts from LinkedIn"""
+
     def __init__(self, driver: webdriver.Chrome):
         self.driver = driver
-        self.wait = WebDriverWait(self.driver, 10)
+        self.wait = WebDriverWait(self.driver, 200)
 
     async def extract_job_details(self, job_card: WebElement) -> Optional[dict]:
         """Extract job details from a job card with improved error handling"""
         try:
-            job_id = job_card.find_element(By.CLASS_NAME, "feed-shared-update-v2").get_attribute("data-urn")
+            job_id = job_card.find_element(
+                By.CLASS_NAME, "feed-shared-update-v2"
+            ).get_attribute("data-urn")
             title = ""
-            content = job_card.find_element(By.CLASS_NAME, "break-words").get_attribute("innerText").strip()
+            content = (
+                job_card.find_element(By.CLASS_NAME, "break-words")
+                .get_attribute("innerText")
+                .strip()
+            )
             url = f"https://www.linkedin.com/feed/update/{job_id}"
 
-            email_match = re.search(r'\b[\w.-]+?@\w+?\.\w+?\b', content)
+            email_match = re.search(r"\b[\w.-]+?@\w+?\.\w+?\b", content)
             email = email_match.group(0) if email_match else None
 
             return {
-                'job_id': job_id,
-                'title': title,
-                'content': content,
-                'url': url,
-                'email': email,
-                'found_at': datetime.now(),
-                'source': "linkedin_post"
+                "job_id": job_id,
+                "title": title,
+                "content": content,
+                "url": url,
+                "email": email,
+                "found_at": datetime.now(),
+                "source": "linkedin_post",
             }
         except Exception as e:
             logger.error(f"Error extracting job details: {str(e)}")
@@ -128,7 +134,9 @@ class LinkedInPostFetcher:
             await self._scroll_to_load_jobs()
 
             job_cards = self.wait.until(
-                EC.presence_of_all_elements_located((By.CSS_SELECTOR, "li.artdeco-card"))
+                EC.presence_of_all_elements_located(
+                    (By.CSS_SELECTOR, "li.artdeco-card")
+                )
             )
 
             jobs = []
@@ -147,9 +155,15 @@ class LinkedInPostFetcher:
 
     async def _scroll_to_load_jobs(self, max_jobs: int = 50):
         """Scroll page to load more job listings"""
-        while len(self.driver.find_elements(By.CSS_SELECTOR, "li.artdeco-card")) < max_jobs:
-            self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+        while (
+            len(self.driver.find_elements(By.CSS_SELECTOR, "li.artdeco-card"))
+            < max_jobs
+        ):
+            self.driver.execute_script(
+                "window.scrollTo(0, document.body.scrollHeight);"
+            )
             await asyncio.sleep(2)
+
 
 class ChromeDriverManager:
     def __init__(self, profile_path: str):
@@ -241,10 +255,12 @@ class LinkedInJobScanner(ScannerService):
         """Clean up all resources"""
         self.driver_manager.cleanup()
 
+
 # Optional: Main entry point for running the scanner
 async def main():
     scanner = LinkedInJobScanner()
     await scanner.run()
+
 
 if __name__ == "__main__":
     asyncio.run(main())

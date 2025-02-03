@@ -83,7 +83,6 @@ class TelegramNotifier:
 
                 await self.bot.send_message(
                     chat_id=self.channel_id,
-                    message_thread_id=sources_threads_ids[job_data["source"]] or sources_threads_ids["linkedin_post"],
                     text=message,
                     reply_markup=reply_markup,
                     parse_mode="Markdown",
@@ -158,7 +157,7 @@ if __name__ == "__main__":
     logger = logging.getLogger(__name__)
 
     # Initialize the bot
-    notifier = TelegramNotifier(bot_token="7566741801:AAGr3Zl7viAoZo4EXMmkUlR_ukE-0Z2v7dE", channel_id="-1002478023982")
+    notifier = TelegramNotifier(bot_token="8091974785:AAEo54xSwH4XCAUgTxVPkj4S4rNRVPW_EVE", channel_id="-1002268524956")
 
     # Example usage with multiple jobs
     jobs = [
