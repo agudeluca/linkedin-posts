@@ -13,7 +13,7 @@ from db import DatabaseManager
 from filters.ai_formatter import OpenAIFormatter
 from providers.linkedin_posts import LinkedInJobScanner
 from providers.scanners import ScannerService
-from tg import TelegramNotifier
+from tg import OpenAIMessageRetriever, TelegramNotifier
 
 load_dotenv()
 
@@ -88,7 +88,9 @@ class JobScanScheduler:
 
 if __name__ == "__main__":
     CHROME_PROFILE_PATH = os.path.join(os.getcwd(), "chrome_profile", "linkedin_profile")
-    scanner_services = [LinkedInJobScanner(message_formatters=[OpenAIFormatter(api_url=OPENAI_API_URL, api_token=OPENAI_API_TOKEN, openai_project_id=OPENAI_PROJECT_ID, openai_org_id=OPENAI_ORG_ID)])]
-    notification_service = JobNotificationService(DatabaseManager(), TelegramNotifier(os.getenv("BOT_TOKEN"), os.getenv("CHANNEL_ID")))
+    scanner_services = [LinkedInJobScanner()]
+    openai_formatter = OpenAIFormatter(api_url=OPENAI_API_URL, api_token=OPENAI_API_TOKEN, openai_project_id=OPENAI_PROJECT_ID, openai_org_id=OPENAI_ORG_ID)
+    openai_message_retriever = OpenAIMessageRetriever(openai_formatter=openai_formatter)
+    notification_service = JobNotificationService(DatabaseManager(), TelegramNotifier(os.getenv("BOT_TOKEN"), os.getenv("CHANNEL_ID"), openai_message_retriever))
     scanner = JobScanScheduler(notification_service, scanner_services)
     asyncio.run(scanner.run())
