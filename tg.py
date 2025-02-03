@@ -1,4 +1,6 @@
 
+from abc import ABC, abstractmethod
+from typing import Dict, List
 from urllib.parse import urlencode
 from telegram import Bot, InlineKeyboardMarkup, InlineKeyboardButton, Update
 from telegram.error import TelegramError, RetryAfter
@@ -7,6 +9,8 @@ import logging
 import re
 import asyncio
 import time
+
+from filters.ai_formatter import OpenAIFormatter
 
 
 sources_threads_ids = {
@@ -20,8 +24,36 @@ sources_threads_ids = {
     "linkedin_post": "4294967300"
 }
 
+class TelegramMessageRetriever(ABC):
+    @abstractmethod
+    def get_message(self, job: Dict) -> str:
+        ...
+
+class OpenAIMessageRetriever(TelegramMessageRetriever):
+
+    logger = logging.getLogger(__name__)
+
+    def __init__(self, openai_formatter: OpenAIFormatter):
+        self.openai_formatter = openai_formatter
+
+    def escape_markdown(self, text: str) -> str:
+        """Escape characters that Telegram MarkdownV2 requires."""
+        escape_chars = "_*[]()~`>#+-=|{}.!"
+        return "".join(f"\\{char}" if char in escape_chars else char for char in text)
+
+    def get_message(self, job: Dict):
+        content_to_format: List[Dict] = self.openai_formatter.apply_to_messages([job])
+
+        openai_content_list = content_to_format[0].get("openai_formatted_content") if content_to_format and content_to_format[0].get("openai_formatted_content") else []
+
+        messages: List[str] = [f"""\n\n📢 *{item_in_content.get('company_name') or 'Company'}* is hiring\! 🚀\n\n🔹 *Role:* {self.escape_markdown(item_in_content.get('job_description') or 'Job role details not provided')}\n\n🔹 *Experience Required:* {item_in_content.get('minimum_experience') or 'Not specified'}\n\n🔹 *Tech Stack:* {', '.join(item_in_content.get('programming_languages', [])) or 'Not specified'}\n\n🔹 *Salary:* {item_in_content.get('salary') or 'Not specified'}\n\n🔹 *Currency:* {item_in_content.get('salary_currency') or 'Not specified'}\n\n🔹 *Remote:* {item_in_content.get('remote') or 'Not specified'}\n\n🔹 *Location:* {', '.join(item_in_content.get('locations', [])) or 'Not specified'}""" for item_in_content in openai_content_list]
+        self.logger.info("Messages retrieved from OpenAIMessageRetriever and sent to Telegram")
+        return "".join(messages)
+
+
+
 class TelegramNotifier:
-    def __init__(self, bot_token, channel_id):
+    def __init__(self, bot_token, channel_id, telegram_message_sender: TelegramMessageRetriever=None):
         """Initialize the bot with the token and channel ID"""
         self.bot_token = bot_token
         self.channel_id = channel_id
@@ -33,6 +65,7 @@ class TelegramNotifier:
         # Add rate limiting tracking
         self.last_request_time = 0
         self.min_request_interval = 0.034  # ~30 messages per second max
+        self.telegram_message_sender = telegram_message_sender
 
     async def echo(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Print the received message along with the chat ID"""
@@ -49,7 +82,10 @@ class TelegramNotifier:
 
     async def send_job_offer(self, job_data, max_retries=3):
         """Send a job offer message to the Telegram channel with buttons"""
-        message = remove_hashtags(job_data["content"])
+        if self.telegram_message_sender:
+            message = self.telegram_message_sender.get_message(job_data)
+        else:
+            message = remove_hashtags(job_data["content"])
         emails = extract_emails(message)
 
         keyboard = []
@@ -85,7 +121,7 @@ class TelegramNotifier:
                     chat_id=self.channel_id,
                     text=message,
                     reply_markup=reply_markup,
-                    parse_mode="Markdown",
+                    parse_mode="MarkdownV2",
                 )
                 print("Job offer sent successfully with buttons!")
                 return True
@@ -157,7 +193,7 @@ if __name__ == "__main__":
     logger = logging.getLogger(__name__)
 
     # Initialize the bot
-    notifier = TelegramNotifier(bot_token="8091974785:AAEo54xSwH4XCAUgTxVPkj4S4rNRVPW_EVE", channel_id="-1002268524956")
+    notifier = TelegramNotifier()
 
     # Example usage with multiple jobs
     jobs = [
