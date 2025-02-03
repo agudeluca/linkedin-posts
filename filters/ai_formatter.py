@@ -29,15 +29,15 @@ def get_formatted_prompt(raw_text: str):
     1. If no relevant information for a field is found, leave it blank
     2. programming_languages should be a list of requested programming languages
     3. summarize the job_description to 255 characters
-    4. salary should be accompanied with the currency (USD, ARS, EUR). Example "1000 ARS", "1000 USD"
-    5. remote should only contain one of the following values: fully_remote hybrid_work office_work. Leave it blank if no value can be derived from the text.
+    5. remote should only contain one of the following values: fully remote hybrid work office work. Leave it blank if no value can be derived from the text.
     6. locations should include the work location, like "Argentina" or "Buenos Aires, Argentina" or "Capital Federal, Argentina"
     7. minimum_experience should be an integer representing the number of years. Leave it blank if no value can be derived from the text.
     8. salary currency should only be ARS, USD or EUR. Leave it blank if no value can be derived from the text.
     9. salary should be an integer. salary should ONLY contain numbers. Leave it blank if no value can be derived from the text.
     10. Only return the json with no additional text.
+    11. Make the resulting text on each json field markdown safe.
 
-    Json format: [{"company_name": "", "programming_languages": [], "job_description": "", "minimum_experience": "5", "salary": "","salary_currency": "USD|ARS|EUR", "remote": "fully_remote|hybrid_work|office_work", "locations": []}]
+    Json format: [{"company_name": "", "programming_languages": [], "job_description": "", "minimum_experience": "5", "salary": "","salary_currency": "USD|ARS|EUR", "remote": "fully remote|hybrid work|office work", "locations": []}]
 
     text to organize below this line
 
@@ -96,6 +96,8 @@ class OpenAIFormatter(MessageFilter):
     def apply_to_messages(self, messages: List[Dict]) -> List[Dict]:
         formatted_response = []
         for message in messages:
+            self.logger.info(f"Processing job {message['job_id']} with message formatter {self.__class__.__name__}")
+
             content = message.get("content")
             if content:
                 formatted_content = self.send_to_llm(content)
