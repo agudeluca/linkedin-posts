@@ -21,8 +21,9 @@ def extract_json_from_response(llm_output: str):
     logging.error("No valid JSON found in response")
     return {}
 
-def get_formatted_prompt(raw_text: str):
-    PROMPT = r"""Organize the following text using the following json format. 
+def get_formatted_prompt():
+    PROMPT = r"""
+    You are an AI Assistant that evaluates job offer texts and parses them as json
 
     Constraints:
     0. Only return the json with no additional text.
@@ -36,13 +37,15 @@ def get_formatted_prompt(raw_text: str):
     9. salary should be an integer. salary should ONLY contain numbers. Leave it blank if no value can be derived from the text.
     10. Only return the json with no additional text.
     11. Make the resulting text on each json field markdown safe.
+    12. score field should contain an integer value between 1 and 100 where:
+    1 indicates that the text is definitely not a job offer.
+    100 indicates that the text is definitely a job offer.
+    Intermediate scores represent varying degrees of confidence
+    13. Json should be a list. If no job offers found, it should return an empty list.
 
-    Json format: [{"company_name": "", "programming_languages": [], "job_description": "", "minimum_experience": "5", "salary": "","salary_currency": "USD|ARS|EUR", "remote": "fully remote|hybrid work|office work", "locations": []}]
-
-    text to organize below this line
-
+    Json format: [{"company_name": "", "programming_languages": [], "job_description": "", "minimum_experience": "5", "salary": "","salary_currency": "USD|ARS|EUR", "remote": "fully remote|hybrid work|office work", "locations": [], "score": 0}]
     """
-    return PROMPT + raw_text
+    return PROMPT
 
 class DeepSeekAIFormatter(MessageFilter):
     def __init__(self, api_url: str, api_token: str, *args, **kwargs):
@@ -108,18 +111,20 @@ class OpenAIFormatter(MessageFilter):
         return formatted_response
 
     def send_to_llm(self, raw_text: str) -> List[Dict]:
-        formatted_prompt = get_formatted_prompt(raw_text)
+        formatted_prompt = get_formatted_prompt()
 
         try:
             llm_configure_prompt = {
                 "model": self._MODEL,
-                "messages": [{"role": "user", "content": formatted_prompt}],
+                "messages": [
+                    {"role": "developer", "content": formatted_prompt},
+                    {"role": "user", "content": raw_text}],
                 "temperature": 1.0
             }
             service_path = "chat/completions"
             response = requests.post(
                 f"{self.api_url}/{service_path}",
-                headers={"Authorization": f"Bearer {self.api_token}", "Content-Type": "application/json", "OpenAI-Project": self.openai_project_id, "OpenAI-Organization": self.openai_org_id},
+                headers={"Authorization": f"Bearer {self.api_token}", "Content-Type": "application/json", "OpenAI-Project": self.openai_project_id, "OpenAI-Organization": self.openai_org_id, "OpenAI-Beta": "assistants=v2",},
                 json=llm_configure_prompt
             )
             if response.status_code == 200:

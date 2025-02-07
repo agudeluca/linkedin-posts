@@ -25,6 +25,8 @@ OPENAI_API_TOKEN=os.getenv("OPENAI_API_TOKEN")
 OPENAI_PROJECT_ID=os.getenv("OPENAI_PROJECT_ID")
 OPENAI_ORG_ID=os.getenv("OPENAI_ORG_ID")
 
+SCORE_THRESHOLD: int=int(os.getenv("SCORE_THRESHOLD", "75")) # int value, not string
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -90,7 +92,7 @@ if __name__ == "__main__":
     CHROME_PROFILE_PATH = os.path.join(os.getcwd(), "chrome_profile", "linkedin_profile")
     scanner_services = [LinkedInJobScanner()]
     openai_formatter = OpenAIFormatter(api_url=OPENAI_API_URL, api_token=OPENAI_API_TOKEN, openai_project_id=OPENAI_PROJECT_ID, openai_org_id=OPENAI_ORG_ID)
-    openai_message_retriever = OpenAIMessageRetriever(openai_formatter=openai_formatter)
+    openai_message_retriever = OpenAIMessageRetriever(openai_formatter=openai_formatter, score_threshold=SCORE_THRESHOLD)
     notification_service = JobNotificationService(DatabaseManager(), TelegramNotifier(os.getenv("BOT_TOKEN"), os.getenv("CHANNEL_ID"), openai_message_retriever))
     scanner = JobScanScheduler(notification_service, scanner_services)
     asyncio.run(scanner.run())

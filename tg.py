@@ -33,20 +33,28 @@ class OpenAIMessageRetriever(TelegramMessageRetriever):
 
     logger = logging.getLogger(__name__)
 
-    def __init__(self, openai_formatter: OpenAIFormatter):
+    def __init__(self, openai_formatter: OpenAIFormatter, score_threshold):
         self.openai_formatter = openai_formatter
+        self.score_threshold = score_threshold
 
     def escape_markdown(self, text: str) -> str:
         """Escape characters that Telegram MarkdownV2 requires."""
         escape_chars = "_*[]()~`>#+-=|{}.!"
         return "".join(f"\\{char}" if char in escape_chars else char for char in text)
 
+    def log_and_return(self, content_item):
+        score: str = str(content_item.get('score'))
+        self.logger.info(f"Content accepted with score {score}")
+        return content_item
+
+    def filter_content_by_score(self, openai_content_list, content_threshold):
+        return [self.log_and_return(content_item) for content_item in openai_content_list if content_item.get("score", 0) > content_threshold]
+
     def get_message(self, job: Dict):
         content_to_format: List[Dict] = self.openai_formatter.apply_to_messages([job])
-
         openai_content_list = content_to_format[0].get("openai_formatted_content") if content_to_format and content_to_format[0].get("openai_formatted_content") else []
-
-        messages: List[str] = [f"""\n\n📢 *{item_in_content.get('company_name') or 'Company'}* is hiring\! 🚀\n\n🔹 *Role:* {self.escape_markdown(item_in_content.get('job_description') or 'Job role details not provided')}\n\n🔹 *Experience Required:* {item_in_content.get('minimum_experience') or 'Not specified'}\n\n🔹 *Tech Stack:* {', '.join(item_in_content.get('programming_languages', [])) or 'Not specified'}\n\n🔹 *Salary:* {item_in_content.get('salary') or 'Not specified'}\n\n🔹 *Currency:* {item_in_content.get('salary_currency') or 'Not specified'}\n\n🔹 *Remote:* {item_in_content.get('remote') or 'Not specified'}\n\n🔹 *Location:* {', '.join(item_in_content.get('locations', [])) or 'Not specified'}""" for item_in_content in openai_content_list]
+        filtered_openai_content_list = self.filter_content_by_score(openai_content_list, self.score_threshold)
+        messages: List[str] = [f"""\n\n📢 *{self.escape_markdown(item_in_content.get('company_name')) or 'Company'}* is hiring\! 🚀\n\n🔹 *Role:* {self.escape_markdown(item_in_content.get('job_description') or 'Job role details not provided')}\n\n🔹 *Experience Required:* {self.escape_markdown(item_in_content.get('minimum_experience')) or 'Not specified'}\n\n🔹 *Tech Stack:* {self.escape_markdown(', '.join(item_in_content.get('programming_languages', []))) or 'Not specified'}\n\n🔹 *Salary:* {self.escape_markdown(item_in_content.get('salary')) or 'Not specified'}\n\n🔹 *Currency:* {self.escape_markdown(item_in_content.get('salary_currency')) or 'Not specified'}\n\n🔹 *Remote:* {item_in_content.get('remote') or 'Not specified'}\n\n🔹 *Location:* {self.escape_markdown(', '.join(item_in_content.get('locations', []))) or 'Not specified'}\n\n🔹 *Contact:* {self.escape_markdown(', '.join(job.get('emails', []))) or 'Not specified'}""" for item_in_content in filtered_openai_content_list]
         self.logger.info("Messages retrieved from OpenAIMessageRetriever and sent to Telegram")
         return "".join(messages)
 
@@ -83,18 +91,17 @@ class TelegramNotifier:
     async def send_job_offer(self, job_data, max_retries=3):
         """Send a job offer message to the Telegram channel with buttons"""
         content = job_data["content"]
-        emails = extract_emails(content)
+        job_data["emails"] = extract_emails(content)
         if self.telegram_message_sender:
             message = self.telegram_message_sender.get_message(job_data)
         else:
             message = remove_hashtags(content)
         
-
         keyboard = []
         subject = "Job Offer"  # Default subject for the email
         body = f"Hello,\n\nI am reaching out regarding the job post: {job_data['url']}"  # Default body
 
-        for email in emails:
+        for email in job_data["emails"]:
             # Create a Gmail compose link with prefilled subject and body
             email_url = (
                 "https://mail.google.com/mail/?view=cm&fs=1&tf=1&" +
@@ -145,7 +152,8 @@ class TelegramNotifier:
                     retry_count += 1
                     continue
                 else:
-                    print(f"Error sending job offer to Telegram: {e}")
+                    print(f"Error sending job offer to Telegram: {e} - with message")
+                    print(message)
                     return False
 
         print("Max retries reached. Failed to send message.")
