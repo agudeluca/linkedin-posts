@@ -39,7 +39,7 @@ class LinkedInAuthenticator:
         try:
             self.driver.get("https://www.linkedin.com/feed/")
             self.wait.until(
-                EC.presence_of_element_located((By.CLASS_NAME, "feed-identity-module"))
+              EC.presence_of_element_located((By.CLASS_NAME, "profile-card-profile-picture-container"))
             )
             logger.info("Successfully logged into LinkedIn")
             return True
@@ -56,7 +56,7 @@ class LinkedInAuthenticator:
     def login_to_linkedin(self, driver, username, password):
         """
         Automates the LinkedIn login process.
-        
+
         Args:
             driver: Selenium WebDriver instance.
             username (str): LinkedIn username (email or phone number).
@@ -175,7 +175,6 @@ class ChromeDriverManager:
         initial_path = os.path.dirname(self.profile_path)
         profile_dir = os.path.basename(self.profile_path)
         os.makedirs(self.profile_path, exist_ok=True)
-
         options = webdriver.ChromeOptions()
         options.add_argument('--disable-gpu')
         options.add_argument('--no-sandbox')
@@ -195,7 +194,7 @@ class ChromeDriverManager:
 
 class LinkedInJobScanner(ScannerService):
     SEARCH_URLS = [
-        "https://www.linkedin.com/search/results/content/?keywords=(%22react%22%20OR%20%22javascript%22%20OR%20%22node%22%20OR%20%22python%22)%20developer%20latam&origin=GLOBAL_SEARCH_HEADER&sid=rfF&sortBy=%22date_posted%22",
+        "https://www.linkedin.com/search/results/content/?keywords=(%22react%22%20OR%20%22javascript%22%20OR%20%22node%22)%20developer%20latam&origin=GLOBAL_SEARCH_HEADER&sid=rfF&sortBy=%22date_posted%22",
         "https://www.linkedin.com/search/results/content/?keywords=%22react%22%20%22developer%22%20%22latam%22&origin=GLOBAL_SEARCH_HEADER&sid=YBw&sortBy=%22date_posted%22"
     ]
 
